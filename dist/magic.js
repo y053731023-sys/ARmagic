@@ -17,8 +17,7 @@ function script(src){return new Promise((resolve,reject)=>{const el=document.cre
 function eventOnce(el,name,timeout=20000){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(new Error('載入逾時，請重新開啟')),timeout);const ok=()=>finish();const fail=()=>finish(new Error('無法讀取動畫影片'));function finish(e){clearTimeout(timer);el.removeEventListener(name,ok);el.removeEventListener('error',fail);e?reject(e):resolve();}el.addEventListener(name,ok,{once:true});el.addEventListener('error',fail,{once:true});});}
 async function loadVideo(){
  video=document.createElement('video');video.className='animation-source';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');video.preload='auto';video.setAttribute('aria-hidden','true');document.body.append(video);
- const response=await fetch('assets/stickman-green.mp4');if(!response.ok)throw new Error('動畫影片下載失敗');
- blobUrl=URL.createObjectURL(await response.blob());const loaded=eventOnce(video,'loadeddata');video.src=blobUrl;video.load();await loaded;
+ const loaded=eventOnce(video,'loadedmetadata',30000);video.src='assets/stickman-green.mp4';video.load();await loaded;
  texture=new THREE.VideoTexture(video);texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;
  video.addEventListener('error',()=>fail('動畫影片無法播放，請重新開啟網頁。'));
 }
@@ -72,13 +71,13 @@ function setupDemo(){
 async function setupAR(){
  if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia)throw new Error('請使用 HTTPS 網址開啟相機');if(!AFRAME.components['mindar-image'])await script('assets/mindar-image-aframe.prod.js');
  arScene=document.createElement('a-scene');arScene.setAttribute('embedded','');arScene.setAttribute('vr-mode-ui','enabled: false');arScene.setAttribute('device-orientation-permission-ui','enabled: false');arScene.setAttribute('renderer','antialias: true; alpha: true; preserveDrawingBuffer: true;');arScene.setAttribute('mindar-image','imageTargetSrc: assets/blue-card.mind; autoStart: false; maxTrack: 1; uiLoading: no; uiScanning: no; uiError: no; warmupTolerance: 5; missTolerance: 5;');
- arScene.innerHTML='<a-entity id="card-anchor" mindar-image-target="targetIndex: 0"></a-entity><a-camera position="0 0 0" look-controls="enabled: false"></a-camera>';$('#stage').append(arScene);if(!arScene.hasLoaded)await eventOnce(arScene,'loaded');anchor=$('#card-anchor');art=makeArtwork();art.position.z=.002;anchor.object3D.add(art);
- arScene.addEventListener('arError',()=>fail('相機無法啟動。請允許相機權限後重試。'));const ready=eventOnce(arScene,'arReady',45000);$('#mode').textContent='相機啟動中';arScene.systems['mindar-image-system'].start();await ready;$('#mode').textContent='AR 相機';
+ arScene.innerHTML='<a-entity id="card-anchor" mindar-image-target="targetIndex: 0"></a-entity><a-camera position="0 0 0" look-controls="enabled: false"></a-camera>';$('#stage').append(arScene);if(!arScene.hasLoaded)await eventOnce(arScene,'loaded');anchor=$('#card-anchor');
+ arScene.addEventListener('arError',()=>fail('相機無法啟動。請允許相機權限後重試。'));const ready=eventOnce(arScene,'arReady',45000);$('#mode').textContent='相機啟動中';arScene.systems['mindar-image-system'].start();await ready;$('#mode').textContent='AR 相機';$('#status').textContent='相機已開啟，正在載入動畫…';await loadVideo();art=makeArtwork();art.position.z=.002;anchor.object3D.add(art);
 }
 export async function start(demo){
  if(active)return;demoMode=demo;if(!window.AFRAME)await script('assets/aframe.min.js');THREE=AFRAME.THREE;projectedBase=new THREE.Vector3();projectedTop=new THREE.Vector3();
- await loadVideo();$('#intro').hidden=true;$('#status').hidden=false;$('#status').textContent='正在準備影片與相機…';document.body.classList.toggle('live',!demo);
- try{if(demo)setupDemo();else await setupAR();await reset();}catch(e){stopAR();video.pause();throw e;}
+ $('#intro').hidden=true;$('#status').hidden=false;$('#status').textContent='正在準備影片與相機…';document.body.classList.toggle('live',!demo);
+ try{if(demo){await loadVideo();setupDemo();}else await setupAR();await reset();}catch(e){stopAR();video?.pause();throw e;}
  active=true;last=0;$('#resume').onclick=()=>{blocked=false;$('#resume').hidden=true;play();};raf=requestAnimationFrame(frame);
  document.addEventListener('visibilitychange',()=>{last=0;if(document.hidden)video.pause();});
  addEventListener('pagehide',()=>{active=false;cancelAnimationFrame(raf);video.pause();stopAR();if(blobUrl)URL.revokeObjectURL(blobUrl);});
