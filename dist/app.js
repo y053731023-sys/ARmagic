@@ -1,0 +1,12 @@
+import {bindHold} from './hold.mjs?v=camera-1';
+const $=s=>document.querySelector(s);let magic=null,mirrored=false,zoom=1,toastTimer,photoUrl,launching=false;
+function toast(text){$('#toast').textContent=text;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,1300);}
+$('#help').onclick=$('#cards').onclick=()=>$('#guide').showModal();$('.close').onclick=()=>$('#guide').close();$('.photo-close').onclick=()=>$('#photo').close();
+$('#start').onclick=()=>launch(false);$('#demo').onclick=()=>launch(true);
+async function launch(demo){if(launching||document.body.classList.contains('performing'))return;launching=true;$('#intro').hidden=true;$('#status').hidden=false;$('#status').textContent='正在開啟相機…';$('#start').disabled=true;$('#demo').disabled=true;$('#start').textContent='正在開啟…';try{magic=await import('./magic.js?v=single-1');await magic.start(demo);document.body.classList.add('performing');}catch(e){document.body.classList.add('error');$('#intro').hidden=false;$('#start').disabled=false;$('#start').textContent='重新開啟';$('#start').onclick=()=>location.reload();$('#status').hidden=false;$('#status').textContent=e.message||'相機無法啟動';}finally{launching=false;}}
+bindHold($('#reset'),{onTap(){mirrored=!mirrored;$('#stage').style.setProperty('--mirror',mirrored?-1:1);$('#reset').setAttribute('aria-pressed',String(mirrored));},async onHold(){if(!magic||!document.body.classList.contains('performing')){toast('尚未開始');return;}await magic.resetPerformance();navigator.vibrate?.(35);toast('已重置');}});
+$('#grid-toggle').onclick=()=>{const visible=$('#viewfinder').hidden;$('#viewfinder').hidden=!visible;$('#grid-toggle').setAttribute('aria-pressed',String(visible));};
+document.querySelectorAll('[data-zoom]').forEach(b=>b.onclick=()=>{zoom=Number(b.dataset.zoom);$('#stage').style.setProperty('--zoom',zoom);document.querySelectorAll('[data-zoom]').forEach(x=>{const selected=x===b;x.classList.toggle('selected',selected);x.setAttribute('aria-pressed',String(selected));});});
+$('#shutter').onclick=async()=>{if(!magic||!document.body.classList.contains('performing')){await launch(false);return;}try{const blob=await magic.capturePhoto({zoom,mirrored});if(photoUrl)URL.revokeObjectURL(photoUrl);photoUrl=URL.createObjectURL(blob);$('#photo-image').src=photoUrl;$('#save-photo').href=photoUrl;$('#photo').showModal();const flash=document.createElement('div');flash.className='flash-screen';document.body.append(flash);setTimeout(()=>flash.remove(),250);}catch(e){toast('照片尚未準備好，請稍後再試');}};
+
+void launch(false);
