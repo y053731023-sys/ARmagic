@@ -18,5 +18,5 @@ j.visible=true;advance(10,5);assert.ok(j.time>time,'Reacquisition resumes retain
 advance(10,9.85);assert.equal(j.phase,'done');advance(100,1.15);assert.equal(j.phase,'done','No automatic loop');
 j.reset();assert.equal(j.phase,'second');assert.equal(j.time,0);assert.equal(j.ready,false);assert.equal(j.clip.start,1.15);
 j.visible=true;advance(10,2);assert.ok(j.time>0,'Reset plays the same retained scene');
-for(const file of ['assets/stickman-green.mp4','assets/blue-card.jpg','assets/blue-card.mind','assets/aframe.min.js','assets/mindar-image-aframe.prod.js'])assert.ok(existsSync('dist/'+file),file);
+for(const file of ['assets/stickman-mobile.mp4','assets/stickman-green.mp4','assets/blue-card.jpg','assets/blue-card.mind','assets/aframe.min.js','assets/mindar-image-aframe.prod.js'])assert.ok(existsSync('dist/'+file),file);
 const source=readFileSync('dist/magic.js','utf8');assert.ok(source.includes('VideoTexture'));assert.ok(!source.includes('SphereGeometry'));console.log('PASS: single scene, stable tracking, pause/resume, completion, replay reset, orientation, video assets.');

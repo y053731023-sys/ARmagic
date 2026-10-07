@@ -17,7 +17,7 @@ function script(src){return new Promise((resolve,reject)=>{const el=document.cre
 function eventOnce(el,name,timeout=20000){return new Promise((resolve,reject)=>{const timer=setTimeout(()=>finish(new Error('載入逾時，請重新開啟')),timeout);const ok=()=>finish();const fail=()=>finish(new Error('無法讀取動畫影片'));function finish(e){clearTimeout(timer);el.removeEventListener(name,ok);el.removeEventListener('error',fail);e?reject(e):resolve();}el.addEventListener(name,ok,{once:true});el.addEventListener('error',fail,{once:true});});}
 async function loadVideo(){
  video=document.createElement('video');video.className='animation-source';video.muted=true;video.defaultMuted=true;video.playsInline=true;video.setAttribute('playsinline','');video.setAttribute('webkit-playsinline','');video.preload='auto';video.setAttribute('aria-hidden','true');document.body.append(video);
- const loaded=eventOnce(video,'loadedmetadata',30000);video.src='assets/stickman-green.mp4';video.load();await loaded;
+ $('#resume').textContent='點一下載入動畫';$('#resume').hidden=false;$('#resume').onclick=()=>{video.play().then(()=>{if(!active)video.pause();}).catch(()=>{$('#status').textContent='請再點一下以允許播放動畫';});};const loaded=eventOnce(video,'loadedmetadata',20000);video.src='assets/stickman-mobile.mp4';video.load();await loaded;$('#resume').hidden=true;
  texture=new THREE.VideoTexture(video);texture.minFilter=THREE.LinearFilter;texture.magFilter=THREE.LinearFilter;
  video.addEventListener('error',()=>fail('動畫影片無法播放，請重新開啟網頁。'));
 }
@@ -39,7 +39,7 @@ function makeArtwork(){
 async function prepareClip(){
  const token=++phaseToken;preparing=true;videoReady=false;video.pause();blocked=false;$('#resume').hidden=true;
  const clip=journey.clip;if(!clip){preparing=false;return;}
- try{if(Math.abs(video.currentTime-clip.start)>.015){const seek=eventOnce(video,'seeked');video.currentTime=clip.start;await seek;}if(token===phaseToken){videoReady=true;preparing=false;}}
+ try{if(Math.abs(video.currentTime-clip.start)>.015){const help=setTimeout(()=>{$('#resume').hidden=false;$('#resume').textContent='點一下繼續動畫';},2500);try{const seek=eventOnce(video,'seeked',15000);video.currentTime=clip.start;await seek;}finally{clearTimeout(help);}}if(token===phaseToken){videoReady=true;preparing=false;$('#resume').hidden=true;}}
  catch(e){if(token===phaseToken){preparing=false;fail(e.message);}}
 }
 function play(){if(!active||playPending||blocked||!videoReady||preparing||!video.paused)return;playPending=true;video.play().catch(e=>{if(e.name!=='AbortError'){blocked=true;$('#resume').hidden=false;}}).finally(()=>playPending=false);}
@@ -55,9 +55,9 @@ function frame(now){
  const oldPhase=journey.phase;if(!paused)journey.update(dt,videoReady&&!preparing?video.currentTime:null);
  if(journey.phase!==oldPhase){video.pause();videoReady=false;if(journey.clip)void prepareClip();}
  const canPlay=journey.phase==='second'&&!paused&&journey.ready&&videoReady&&!preparing&&!journey.atClipEnd;
- if(canPlay)play();else video.pause();art.visible=!!journey.clip&&videoReady&&journey.visible;
+ if(canPlay)play();else video.pause();const buffering=canPlay&&video.readyState<3;document.body.classList.toggle('buffering',buffering);if(buffering){$('#status').textContent='動畫緩衝中…';} art.visible=!!journey.clip&&videoReady&&journey.visible;
  art.position.x=0;material.uniforms.opacity.value=1;videoMesh.visible=journey.phase==='second';
- updateStatus();if(demoMode)renderer.render(scene,camera);raf=requestAnimationFrame(frame);
+ if(!buffering)updateStatus();if(demoMode)renderer.render(scene,camera);raf=requestAnimationFrame(frame);
 }
 async function reset(){journey.reset();art.visible=false;await prepareClip();updateStatus();return {phase:journey.phase};}
 function setupDemo(){
@@ -78,7 +78,7 @@ export async function start(demo){
  if(active)return;demoMode=demo;if(!window.AFRAME)await script('assets/aframe.min.js');THREE=AFRAME.THREE;projectedBase=new THREE.Vector3();projectedTop=new THREE.Vector3();
  $('#intro').hidden=true;$('#status').hidden=false;$('#status').textContent='正在準備影片與相機…';document.body.classList.toggle('live',!demo);
  try{if(demo){await loadVideo();setupDemo();}else await setupAR();await reset();}catch(e){stopAR();video?.pause();throw e;}
- active=true;last=0;$('#resume').onclick=()=>{blocked=false;$('#resume').hidden=true;play();};raf=requestAnimationFrame(frame);
+ active=true;last=0;$('#resume').textContent='繼續動畫';$('#resume').onclick=()=>{blocked=false;$('#resume').hidden=true;play();};raf=requestAnimationFrame(frame);
  document.addEventListener('visibilitychange',()=>{last=0;if(document.hidden)video.pause();});
  addEventListener('pagehide',()=>{active=false;cancelAnimationFrame(raf);video.pause();stopAR();if(blobUrl)URL.revokeObjectURL(blobUrl);});
  if(document.modelContext?.registerTool){try{await document.modelContext.registerTool({name:'reset_magic_performance',description:'重設影片魔術，重新播放小人走進牌面的效果。',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false},async execute(input){if(!input||typeof input!=='object'||Object.keys(input).length)throw new Error('不需要參數');return await reset();}});}catch(e){console.warn(e);}}
